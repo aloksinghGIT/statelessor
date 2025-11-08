@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { AlertCircle, FileCode, Download, Upload, Github, Play, Loader } from 'lucide-react';
 import './App.css';
+import statelessorLogo from './statelessor.png';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://statelessor-api.port2aws.pro';
 
 const StatefulAnalyzer = () => {
   const [activeTab, setActiveTab] = useState('upload');
@@ -24,7 +27,7 @@ const StatefulAnalyzer = () => {
   const downloadScript = async (os) => {
     try {
       const requestId = crypto.randomUUID();
-      const response = await fetch(`http://localhost:3001/api/script/${os}`, {
+      const response = await fetch(`${API_BASE_URL}/api/script/${os}`, {
         headers: {
           'X-Request-ID': requestId
         }
@@ -79,7 +82,7 @@ const StatefulAnalyzer = () => {
         formData.append('zipFile', uploadedFile);
         formData.append('type', 'zip');
         
-        response = await fetch('http://localhost:3001/analyze', {
+        response = await fetch(`${API_BASE_URL}/analyze`, {
           method: 'POST',
           headers: {
             'X-Request-ID': requestId
@@ -101,7 +104,7 @@ const StatefulAnalyzer = () => {
         
         console.log('Sending payload to backend:', payload);
         
-        response = await fetch('http://localhost:3001/analyze', {
+        response = await fetch(`${API_BASE_URL}/analyze`, {
           method: 'POST',
           headers: { 
             'X-Request-ID': requestId,
@@ -110,7 +113,7 @@ const StatefulAnalyzer = () => {
           body: JSON.stringify(payload)
         });
       } else if (activeTab === 'json' && jsonData) {
-        response = await fetch('http://localhost:3001/analyze', {
+        response = await fetch(`${API_BASE_URL}/analyze`, {
           method: 'POST',
           headers: { 
             'X-Request-ID': requestId,
@@ -144,7 +147,7 @@ const StatefulAnalyzer = () => {
     } catch (error) {
       console.error('Analysis failed:', error);
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        alert('Cannot connect to backend server. Please ensure the backend is running on port 3001.');
+        alert('Cannot connect to backend server. Please check your connection and try again.');
       } else {
         alert('Analysis failed: ' + error.message);
       }
@@ -158,7 +161,7 @@ const StatefulAnalyzer = () => {
     setIsGeneratingKey(true);
     try {
       const requestId = crypto.randomUUID();
-      const response = await fetch('http://localhost:3001/api/ssh/generate', {
+      const response = await fetch(`${API_BASE_URL}/api/ssh/generate`, {
         method: 'POST',
         headers: { 
           'X-Request-ID': requestId,
@@ -223,7 +226,7 @@ const StatefulAnalyzer = () => {
         payload.keyId = keyId;
       }
       
-      const response = await fetch('http://localhost:3001/api/git/test-connection', {
+      const response = await fetch(`${API_BASE_URL}/api/git/test-connection`, {
         method: 'POST',
         headers: {
           'X-Request-ID': requestId,
@@ -263,11 +266,11 @@ const StatefulAnalyzer = () => {
         <div className="header-content">
           <div className="logo-section">
             <div className="logo">
-              <FileCode size={32} />
+              <img src={statelessorLogo} alt="Statelessor" className="logo-image" />
             </div>
             <div>
               <h1 className="title">Statelessor</h1>
-              <p className="subtitle">Application Statelessness Analyzer</p>
+              <p className="subtitle">Identify reasons for Statefulness; Use AI Assisted fix to make Stateless</p>
             </div>
           </div>
           <div className="header-buttons">

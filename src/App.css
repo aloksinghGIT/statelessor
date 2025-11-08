@@ -37,13 +37,15 @@ body {
 }
 
 .logo {
-  background: linear-gradient(90deg, #2563eb, #4f46e5);
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.logo-image {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
 }
 
 .title {
