@@ -15,10 +15,23 @@ const StatefulAnalyzer = () => {
   const [branch, setBranch] = useState('');
   const [subfolder, setSubfolder] = useState('');
   const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [expandedActions, setExpandedActions] = useState(new Set());
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  
+  // Check if repository is public based on URL (both HTTPS and SSH)
+  const isPublicRepo = gitUrl && gitUrl.includes('github.com');
 
   const downloadScript = async (os) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/script/${os}`);
+      const requestId = crypto.randomUUID();
+      const response = await fetch(`http://localhost:3001/api/script/${os}`, {
+        headers: {
+          'X-Request-ID': requestId
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
       const blob = await response.blob();
       const filename = os === 'bash' ? 'analyze.sh' : 'analyze.ps1';
       const url = URL.createObjectURL(blob);
@@ -28,7 +41,8 @@ const StatefulAnalyzer = () => {
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      alert('Failed to download script. Please try again.');
+      console.error('Download failed:', error);
+      alert('Backend API not available. Please ensure the backend server is running on port 3001.');
     }
   };
 
@@ -57,6 +71,7 @@ const StatefulAnalyzer = () => {
   const analyzeCode = async () => {
     setIsAnalyzing(true);
     try {
+      const requestId = crypto.randomUUID();
       let response;
       
       if (activeTab === 'upload' && uploadedFile) {
@@ -66,23 +81,41 @@ const StatefulAnalyzer = () => {
         
         response = await fetch('http://localhost:3001/analyze', {
           method: 'POST',
+          headers: {
+            'X-Request-ID': requestId
+          },
           body: formData
         });
       } else if (activeTab === 'git' && gitUrl) {
+        const payload = {
+          type: 'git',
+          gitUrl: gitUrl,
+          branch: branch || undefined,
+          subfolder: subfolder || undefined
+        };
+        
+        // Add keyId for SSH URLs when available
+        if (gitUrl.startsWith('git@') && keyId) {
+          payload.keyId = keyId;
+        }
+        
+        console.log('Sending payload to backend:', payload);
+        
         response = await fetch('http://localhost:3001/analyze', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'git',
-            gitUrl: gitUrl,
-            branch: branch || undefined,
-            subfolder: subfolder || undefined
-          })
+          headers: { 
+            'X-Request-ID': requestId,
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify(payload)
         });
       } else if (activeTab === 'json' && jsonData) {
         response = await fetch('http://localhost:3001/analyze', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'X-Request-ID': requestId,
+            'Content-Type': 'application/json' 
+          },
           body: JSON.stringify({
             type: 'json',
             jsonData: JSON.stringify(jsonData)
@@ -90,15 +123,33 @@ const StatefulAnalyzer = () => {
         });
       }
       
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('HTTP Error:', response.status, errorText);
+        alert(`Analysis failed (${response.status}): ${errorText}`);
+        setIsAnalyzing(false);
+        return;
+      }
+      
       const results = await response.json();
+      console.log('Backend response:', results);
+      
       if (results.error) {
-        alert('Analysis failed: ' + results.message);
+        alert('Analysis failed: ' + (results.message || 'Unknown error'));
+        setIsAnalyzing(false);
+        return;
       } else {
         setAnalysisResults(results);
       }
     } catch (error) {
       console.error('Analysis failed:', error);
-      alert('Analysis failed. Please check your connection and try again.');
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        alert('Cannot connect to backend server. Please ensure the backend is running on port 3001.');
+      } else {
+        alert('Analysis failed: ' + error.message);
+      }
+    } finally {
+      setIsAnalyzing(false);
     }
     setIsAnalyzing(false);
   };
@@ -106,9 +157,13 @@ const StatefulAnalyzer = () => {
   const generateSSHKey = async () => {
     setIsGeneratingKey(true);
     try {
+      const requestId = crypto.randomUUID();
       const response = await fetch('http://localhost:3001/api/ssh/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'X-Request-ID': requestId,
+          'Content-Type': 'application/json' 
+        },
         body: JSON.stringify({})
       });
       const data = await response.json();
@@ -137,6 +192,57 @@ const StatefulAnalyzer = () => {
       newExpanded.add(categoryId);
     }
     setExpandedCategories(newExpanded);
+  };
+
+  const toggleActions = (categoryId) => {
+    const newExpanded = new Set(expandedActions);
+    if (newExpanded.has(categoryId)) {
+      newExpanded.delete(categoryId);
+    } else {
+      newExpanded.add(categoryId);
+    }
+    setExpandedActions(newExpanded);
+  };
+
+  const testConnection = async () => {
+    if (!gitUrl) {
+      alert('Please enter a repository URL first.');
+      return;
+    }
+    
+    setIsTestingConnection(true);
+    try {
+      const requestId = crypto.randomUUID();
+      const payload = {
+        gitUrl: gitUrl,
+        branch: branch || undefined
+      };
+      
+      // Add keyId for SSH URLs when available
+      if (gitUrl.startsWith('git@') && keyId) {
+        payload.keyId = keyId;
+      }
+      
+      const response = await fetch('http://localhost:3001/api/git/test-connection', {
+        method: 'POST',
+        headers: {
+          'X-Request-ID': requestId,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        alert('✓ Connection successful! Repository is accessible.');
+      } else {
+        alert('✗ Connection failed: ' + (result.message || 'Repository not accessible'));
+      }
+    } catch (error) {
+      console.error('Connection test failed:', error);
+      alert('✗ Connection test failed. Please check your network and try again.');
+    }
+    setIsTestingConnection(false);
   };
 
   const exportResults = () => {
@@ -214,48 +320,6 @@ const StatefulAnalyzer = () => {
               {activeTab === 'git' && (
                 <div className="git-tab-container">
                   <div className="git-left">
-                    <div className="instructions">
-                      <h4>SSH Setup Instructions</h4>
-                      <ol>
-                        <li>Copy the public key below</li>
-                        <li>Go to your GitHub repository → Settings → Deploy Keys</li>
-                        <li>Click "Add deploy key" and paste the key</li>
-                        <li>Give it a title like "Statelessor Analysis"</li>
-                        <li>Leave "Allow write access" unchecked</li>
-                        <li>Click "Add key"</li>
-                      </ol>
-                    </div>
-                    <div className="ssh-key-section">
-                      {!sshKey ? (
-                        <button 
-                          onClick={generateSSHKey} 
-                          disabled={isGeneratingKey}
-                          className="btn-primary generate-key-btn"
-                        >
-                          {isGeneratingKey ? <Loader className="spinner" size={16} /> : 'Generate SSH Key'}
-                        </button>
-                      ) : (
-                        <>
-                          <label className="input-label">Public SSH Key</label>
-                          <textarea 
-                            className="ssh-key-display" 
-                            readOnly 
-                            value={sshKey}
-                            rows={3}
-                          />
-                          <div className="key-actions">
-                            <button onClick={copySSHKey} className="btn-secondary copy-key-btn">
-                              Copy Key
-                            </button>
-                            <button onClick={() => setSshKey(null)} className="btn-secondary">
-                              Generate New Key
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div className="git-right">
                     <div className="repo-input-section">
                       <label className="input-label">GitHub Repository URL</label>
                       <input 
@@ -287,10 +351,72 @@ const StatefulAnalyzer = () => {
                           />
                         </div>
                       </div>
-                      <button className="btn-secondary test-connection-btn">
-                        Test Connection
+                      <button 
+                        onClick={testConnection}
+                        disabled={isTestingConnection || !gitUrl}
+                        className="btn-secondary test-connection-btn"
+                      >
+                        {isTestingConnection ? <Loader className="spinner" size={16} /> : 'Test Connection'}
                       </button>
                     </div>
+                  </div>
+                  <div className="git-right">
+                    {isPublicRepo ? (
+                      <div className="public-repo-info">
+                        <h4>✓ Public Repository Access</h4>
+                        <div className="instructions">
+                          <p>No SSH setup required for public repositories.</p>
+                          <p>Simply enter the repository URL and click "Start Analysis".</p>
+                          <div className="info-note">
+                            <strong>For Private Repositories:</strong>
+                            <p>If you need to analyze a private repository, you'll need to generate SSH keys and add them as deploy keys to your repository.</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="ssh-setup">
+                        <h4>SSH Setup Instructions</h4>
+                        <div className="instructions">
+                          <ol>
+                            <li>Copy the public key below</li>
+                            <li>Go to your GitHub repository → Settings → Deploy Keys</li>
+                            <li>Click "Add deploy key" and paste the key</li>
+                            <li>Give it a title like "Statelessor Analysis"</li>
+                            <li>Leave "Allow write access" unchecked</li>
+                            <li>Click "Add key"</li>
+                          </ol>
+                        </div>
+                        <div className="ssh-key-section">
+                          {!sshKey ? (
+                            <button 
+                              onClick={generateSSHKey} 
+                              disabled={isGeneratingKey}
+                              className="btn-primary generate-key-btn"
+                            >
+                              {isGeneratingKey ? <Loader className="spinner" size={16} /> : 'Generate SSH Key'}
+                            </button>
+                          ) : (
+                            <>
+                              <label className="input-label">Public SSH Key</label>
+                              <textarea 
+                                className="ssh-key-display" 
+                                readOnly 
+                                value={sshKey}
+                                rows={3}
+                              />
+                              <div className="key-actions">
+                                <button onClick={copySSHKey} className="btn-secondary copy-key-btn">
+                                  Copy Key
+                                </button>
+                                <button onClick={() => setSshKey(null)} className="btn-secondary">
+                                  Generate New Key
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -370,7 +496,7 @@ const StatefulAnalyzer = () => {
 
             <div className="results-tree-container">
               <div className="results-header">
-                <h3>Issues by Category</h3>
+                <h3>Analysis Results</h3>
                 <button onClick={exportResults} className="btn-secondary">
                   <Download size={16} />
                   Export CSV
@@ -404,13 +530,55 @@ const StatefulAnalyzer = () => {
                               <div key={finding.id} className="finding-item">
                                 <div className="finding-header">
                                   <span className="filename">{finding.filename}</span>
-                                  <span className="function-name">{finding.function}()</span>
+                                  <span className="function-name">
+                                    {finding.function === 'Unknown' ? 'Class Level' : finding.function}
+                                  </span>
                                   <span className="line-number">Line {finding.lineNum}</span>
                                 </div>
                                 <div className="code-snippet">{finding.code}</div>
                               </div>
                             ))
                           }
+                        </div>
+
+                        <div className="actions-section">
+                          <div 
+                            className="actions-header"
+                            onClick={() => toggleActions(category.id)}
+                          >
+                            <span className={`expand-icon ${expandedActions.has(category.id) ? 'expanded' : ''}`}>▶</span>
+                            <span className="actions-title">Implementation Roadmap</span>
+                          </div>
+                          
+                          {expandedActions.has(category.id) && analysisResults.actions && (
+                            <div className="actions-list">
+                              {analysisResults.actions
+                                .filter(action => {
+                                  return action.affectedFindings.some(af => 
+                                    analysisResults.detailed
+                                      .filter(d => category.detailIds.includes(d.id))
+                                      .some(d => d.filename === af.filename && d.lineNum === af.lineNum)
+                                  );
+                                })
+                                .map((action) => (
+                                  <div key={action.id} className="action-item">
+                                    <div className="action-header">
+                                      <span className="action-category">{action.category}</span>
+                                      <span className="action-effort">Effort: {action.finalEffort}</span>
+                                    </div>
+                                    <div className="action-description">{action.description}</div>
+                                    {action.subActions && (
+                                      <div className="sub-actions">
+                                        {action.subActions.map((subAction, idx) => (
+                                          <div key={idx} className="sub-action">• {subAction}</div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))
+                              }
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}

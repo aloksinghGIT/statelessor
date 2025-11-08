@@ -1,0 +1,165 @@
+{
+  "projectName": "Sample .NET Project",
+  "projectType": "dotnet",
+  "scanDate": "2024-01-15T10:30:00Z",
+  "complexityFactor": 2.5,
+  "stats": {
+    "totalFiles": 45,
+    "totalIssues": 12,
+    "highSeverity": 3,
+    "mediumSeverity": 5,
+    "lowSeverity": 4,
+    "totalEffortScore": 156.7
+  },
+  "summary": [
+    {
+      "id": "cat1",
+      "category": "Session State Management",
+      "severity": "high",
+      "occurrences": 3,
+      "effortScore": 45.5,
+      "remediation": "Replace session state with stateless alternatives like JWT tokens or external caching solutions.",
+      "detailIds": ["d1", "d2", "d3"]
+    },
+    {
+      "id": "cat2", 
+      "category": "Static Field Usage",
+      "severity": "medium",
+      "occurrences": 5,
+      "effortScore": 67.2,
+      "remediation": "Convert static fields to dependency injection or configuration-based approaches.",
+      "detailIds": ["d4", "d5", "d6", "d7", "d8"]
+    },
+    {
+      "id": "cat3",
+      "category": "File System Dependencies", 
+      "severity": "low",
+      "occurrences": 4,
+      "effortScore": 44.0,
+      "remediation": "Use cloud storage services or containerized volumes instead of local file system.",
+      "detailIds": ["d9", "d10", "d11", "d12"]
+    }
+  ],
+  "detailed": [
+    {
+      "id": "d1",
+      "filename": "Controllers/UserController.cs",
+      "function": "Login",
+      "lineNum": 45,
+      "code": "Session[\"UserId\"] = user.Id;",
+      "category": "Session State Management",
+      "severity": "high",
+      "remediation": "Use JWT tokens instead of session state"
+    },
+    {
+      "id": "d2", 
+      "filename": "Controllers/CartController.cs",
+      "function": "AddItem",
+      "lineNum": 23,
+      "code": "Session[\"CartItems\"] = cartItems;",
+      "category": "Session State Management", 
+      "severity": "high",
+      "remediation": "Store cart data in database or Redis cache"
+    },
+    {
+      "id": "d3",
+      "filename": "Helpers/AuthHelper.cs",
+      "function": "GetCurrentUser", 
+      "lineNum": 12,
+      "code": "var userId = Session[\"UserId\"];",
+      "category": "Session State Management",
+      "severity": "high", 
+      "remediation": "Extract user info from JWT token claims"
+    },
+    {
+      "id": "d4",
+      "filename": "Utils/ConfigManager.cs",
+      "function": "GetConnectionString",
+      "lineNum": 8,
+      "code": "private static string _connectionString;",
+      "category": "Static Field Usage",
+      "severity": "medium",
+      "remediation": "Use IConfiguration dependency injection"
+    },
+    {
+      "id": "d5",
+      "filename": "Services/CacheService.cs", 
+      "function": "Initialize",
+      "lineNum": 15,
+      "code": "private static Dictionary<string, object> _cache = new();",
+      "category": "Static Field Usage",
+      "severity": "medium",
+      "remediation": "Use IMemoryCache or distributed cache"
+    },
+    {
+      "id": "d6",
+      "filename": "Models/AppSettings.cs",
+      "function": "LoadSettings",
+      "lineNum": 20,
+      "code": "public static AppConfig Config { get; set; }",
+      "category": "Static Field Usage", 
+      "severity": "medium",
+      "remediation": "Use Options pattern with IOptions<T>"
+    },
+    {
+      "id": "d7",
+      "filename": "Utils/Logger.cs",
+      "function": "Log",
+      "lineNum": 10,
+      "code": "private static readonly List<string> _logs = new();",
+      "category": "Static Field Usage",
+      "severity": "medium", 
+      "remediation": "Use ILogger dependency injection"
+    },
+    {
+      "id": "d8",
+      "filename": "Services/CounterService.cs",
+      "function": "Increment",
+      "lineNum": 7,
+      "code": "private static int _counter = 0;",
+      "category": "Static Field Usage",
+      "severity": "medium",
+      "remediation": "Use scoped service with external state store"
+    },
+    {
+      "id": "d9",
+      "filename": "Services/FileService.cs", 
+      "function": "SaveFile",
+      "lineNum": 25,
+      "code": "File.WriteAllText(@\"C:\\temp\\data.txt\", content);",
+      "category": "File System Dependencies",
+      "severity": "low",
+      "remediation": "Use cloud storage like Azure Blob Storage"
+    },
+    {
+      "id": "d10",
+      "filename": "Utils/ConfigReader.cs",
+      "function": "ReadConfig", 
+      "lineNum": 18,
+      "code": "var config = File.ReadAllText(\"config.json\");",
+      "category": "File System Dependencies",
+      "severity": "low",
+      "remediation": "Use configuration providers or environment variables"
+    },
+    {
+      "id": "d11",
+      "filename": "Services/LogService.cs",
+      "function": "WriteLog",
+      "lineNum": 33,
+      "code": "File.AppendAllText(\"app.log\", logEntry);", 
+      "category": "File System Dependencies",
+      "severity": "low",
+      "remediation": "Use structured logging with external log aggregation"
+    },
+    {
+      "id": "d12",
+      "filename": "Controllers/UploadController.cs",
+      "function": "ProcessUpload",
+      "lineNum": 40,
+      "code": "file.SaveAs(Server.MapPath(\"~/uploads/\" + fileName));",
+      "category": "File System Dependencies",
+      "severity": "low",
+      "remediation": "Use cloud storage for file uploads"
+    }
+  ]
+}
